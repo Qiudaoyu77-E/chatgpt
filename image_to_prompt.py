@@ -42,6 +42,15 @@ DETAIL_GUIDANCE = {
 }
 
 
+SYSTEM_INSTRUCTION = (
+    "你是资深提示词工程师。请把输入图片转成高质量中文生图提示词。"
+    "输出为 JSON，字段必须包含："
+    "main_prompt（主提示词）, negative_prompt（负面词）, style_tags（风格标签数组）, "
+    "camera_or_render（镜头或渲染参数）, lighting（光照）, composition（构图）, "
+    "color_palette（配色）, optional_variants（3条可选变体）。"
+)
+
+
 PROVIDERS: dict[str, dict[str, str]] = {
     "openai": {
         "base_url": "https://api.openai.com/v1",
@@ -83,6 +92,8 @@ def to_data_url(image_path: Path) -> str:
 def build_user_instruction(style: str | None, purpose: str | None, detail_level: str) -> str:
     guidance = DETAIL_GUIDANCE.get(detail_level, DETAIL_GUIDANCE["high"])
     extra: list[str] = [f"细节等级：{detail_level}（{guidance}）"]
+def build_user_instruction(style: str | None, purpose: str | None) -> str:
+    extra: list[str] = []
     if style:
         extra.append(f"目标风格：{style}")
     if purpose:
@@ -91,6 +102,8 @@ def build_user_instruction(style: str | None, purpose: str | None, detail_level:
     extra.append(
         "请把主提示词写成‘尽量可还原原图细节’的形式，并在 must_keep_details 里列出不少于 12 条硬约束。"
     )
+    if not extra:
+        return "请基于图片内容生成提示词。"
     return "请基于图片内容生成提示词。" + "；".join(extra)
 
 
@@ -102,6 +115,11 @@ def generate_prompt_from_path(
     detail_level: str = "high",
     api_key: str | None = None,
     base_url: str | None = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
+    model: str = "gpt-4.1-mini",
+    style: str | None = None,
+    purpose: str | None = None,
 ) -> dict[str, Any]:
     if not image_path.exists():
         raise FileNotFoundError(f"找不到图片: {image_path}")
@@ -116,6 +134,17 @@ def generate_prompt_from_path(
             {
                 "role": "system",
                 "content": [{"type": "input_text", "text": BASE_SYSTEM_INSTRUCTION}],
+    client = OpenAI()
+    image_data_url = to_data_url(image_path)
+    user_instruction = build_user_instruction(style, purpose)
+
+    resp = client.responses.create(
+        model=model or "gpt-4.1-mini",
+        model=model,
+        input=[
+            {
+                "role": "system",
+                "content": [{"type": "input_text", "text": SYSTEM_INSTRUCTION}],
             },
             {
                 "role": "user",
@@ -141,6 +170,9 @@ def main() -> None:
     parser.add_argument("--style", default=None, help="期望风格，如 3D / 动漫 / 写实")
     parser.add_argument("--purpose", default=None, help="用途，如 Midjourney / 海报 / 电商主图")
     parser.add_argument("--detail-level", default="high", choices=["low", "medium", "high"], help="细节保真等级")
+    parser.add_argument("--model", default="gpt-4.1-mini", help="使用的模型")
+    parser.add_argument("--style", default=None, help="期望风格，如 3D / 动漫 / 写实")
+    parser.add_argument("--purpose", default=None, help="用途，如 Midjourney / 海报 / 电商主图")
     args = parser.parse_args()
 
     provider_cfg = get_provider_config(args.provider, args.base_url)
@@ -155,6 +187,13 @@ def main() -> None:
         detail_level=args.detail_level,
         api_key=args.api_key,
         base_url=final_base_url,
+        api_key=args.api_key,
+        base_url=final_base_url,
+    result = generate_prompt_from_path(
+        image_path=args.image,
+        model=args.model,
+        style=args.style,
+        purpose=args.purpose,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
