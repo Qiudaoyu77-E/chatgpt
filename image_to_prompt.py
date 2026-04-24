@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """图片自动转提示词（Image -> Prompt）
 
-Usage:
-  export OPENAI_API_KEY=...
-  python image_to_prompt.py path/to/image.jpg --style "cinematic" --model gpt-4.1-mini
+支持两种使用方式：
+1) 命令行：python image_to_prompt.py ./demo.jpg --style "电影感"
+2) 被 Web 应用导入：from image_to_prompt import generate_prompt_from_path
 """
 
 from __future__ import annotations
 
 import argparse
 import base64
+import json
 import mimetypes
 from pathlib import Path
+from typing import Any
 
 from openai import OpenAI
 
@@ -35,7 +37,7 @@ def to_data_url(image_path: Path) -> str:
 
 
 def build_user_instruction(style: str | None, purpose: str | None) -> str:
-    extra = []
+    extra: list[str] = []
     if style:
         extra.append(f"目标风格：{style}")
     if purpose:
@@ -45,23 +47,21 @@ def build_user_instruction(style: str | None, purpose: str | None) -> str:
     return "请基于图片内容生成提示词。" + "；".join(extra)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="图片自动转提示词")
-    parser.add_argument("image", type=Path, help="输入图片路径")
-    parser.add_argument("--model", default="gpt-4.1-mini", help="使用的模型")
-    parser.add_argument("--style", default=None, help="期望风格，如 3D / 动漫 / 写实")
-    parser.add_argument("--purpose", default=None, help="用途，如 Midjourney / 海报 / 电商主图")
-    args = parser.parse_args()
-
-    if not args.image.exists():
-        raise FileNotFoundError(f"找不到图片: {args.image}")
+def generate_prompt_from_path(
+    image_path: Path,
+    model: str = "gpt-4.1-mini",
+    style: str | None = None,
+    purpose: str | None = None,
+) -> dict[str, Any]:
+    if not image_path.exists():
+        raise FileNotFoundError(f"找不到图片: {image_path}")
 
     client = OpenAI()
-    image_data_url = to_data_url(args.image)
-    user_instruction = build_user_instruction(args.style, args.purpose)
+    image_data_url = to_data_url(image_path)
+    user_instruction = build_user_instruction(style, purpose)
 
     resp = client.responses.create(
-        model=args.model,
+        model=model,
         input=[
             {
                 "role": "system",
@@ -78,7 +78,24 @@ def main() -> None:
         text={"format": {"type": "json_object"}},
     )
 
-    print(resp.output_text)
+    return json.loads(resp.output_text)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="图片自动转提示词")
+    parser.add_argument("image", type=Path, help="输入图片路径")
+    parser.add_argument("--model", default="gpt-4.1-mini", help="使用的模型")
+    parser.add_argument("--style", default=None, help="期望风格，如 3D / 动漫 / 写实")
+    parser.add_argument("--purpose", default=None, help="用途，如 Midjourney / 海报 / 电商主图")
+    args = parser.parse_args()
+
+    result = generate_prompt_from_path(
+        image_path=args.image,
+        model=args.model,
+        style=args.style,
+        purpose=args.purpose,
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
