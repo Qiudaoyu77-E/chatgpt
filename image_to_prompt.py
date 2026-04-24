@@ -19,6 +19,10 @@ import mimetypes
 from pathlib import Path
 from typing import Any
 
+try:
+    from openai import OpenAI
+except ModuleNotFoundError:  # pragma: no cover
+    OpenAI = None  # type: ignore[assignment]
 from openai import OpenAI
 
 
@@ -141,6 +145,7 @@ def build_user_instruction(style: str | None, purpose: str | None) -> str:
     return "请基于图片内容生成提示词。" + "；".join(extra)
 
 
+def detect_adult_risk(client: Any, model: str, image_data_url: str) -> dict[str, Any]:
 def detect_adult_risk(client: OpenAI, model: str, image_data_url: str) -> dict[str, Any]:
     moderation_instruction = (
         "判断图片是否包含裸露、色情或情色内容风险。"
@@ -193,6 +198,9 @@ def generate_prompt_from_path(
     for p in image_paths:
         if not p.exists():
             raise FileNotFoundError(f"找不到图片: {p}")
+
+    if OpenAI is None:
+        raise ModuleNotFoundError("未安装 openai 包，请先执行: pip install -r requirements.txt")
 
     final_model = model or "gpt-4.1-mini"
     client = OpenAI(api_key=api_key, base_url=base_url)
