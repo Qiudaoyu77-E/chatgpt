@@ -85,16 +85,21 @@ def generate_prompt_from_path(
     purpose: str | None = None,
     api_key: str | None = None,
     base_url: str | None = None,
+    model: str = "gpt-4.1-mini",
+    style: str | None = None,
+    purpose: str | None = None,
 ) -> dict[str, Any]:
     if not image_path.exists():
         raise FileNotFoundError(f"找不到图片: {image_path}")
 
     client = OpenAI(api_key=api_key, base_url=base_url)
+    client = OpenAI()
     image_data_url = to_data_url(image_path)
     user_instruction = build_user_instruction(style, purpose)
 
     resp = client.responses.create(
         model=model or "gpt-4.1-mini",
+        model=model,
         input=[
             {
                 "role": "system",
@@ -121,6 +126,7 @@ def main() -> None:
     parser.add_argument("--base-url", default=None, help="provider=custom 时必填；其他 provider 可覆盖默认地址")
     parser.add_argument("--api-key", default=None, help="对应平台 API Key（不传则使用环境变量）")
     parser.add_argument("--model", default=None, help="模型名，不传则用 provider 默认值")
+    parser.add_argument("--model", default="gpt-4.1-mini", help="使用的模型")
     parser.add_argument("--style", default=None, help="期望风格，如 3D / 动漫 / 写实")
     parser.add_argument("--purpose", default=None, help="用途，如 Midjourney / 海报 / 电商主图")
     args = parser.parse_args()
@@ -136,6 +142,11 @@ def main() -> None:
         purpose=args.purpose,
         api_key=args.api_key,
         base_url=final_base_url,
+    result = generate_prompt_from_path(
+        image_path=args.image,
+        model=args.model,
+        style=args.style,
+        purpose=args.purpose,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
