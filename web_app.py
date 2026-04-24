@@ -57,6 +57,8 @@ def run_image_to_prompt(
     purpose: str,
     model: str,
     detail_level: str,
+    face_only_mode: bool,
+    restricted_mode: bool,
     focus_mode: str,
     safety_level: str,
     remember_settings: bool,
@@ -102,6 +104,11 @@ def run_image_to_prompt(image, style: str, purpose: str, model: str) -> tuple[st
         else:
             save_msg = "未保存配置"
 
+        focus_mode = "face" if face_only_mode else "general"
+        safety_level = "restricted" if restricted_mode else "normal"
+
+        result = generate_prompt_from_paths(
+            image_paths=image_paths,
         result = generate_prompt_from_paths(
             image_paths=image_paths,
         result = generate_prompt_from_path(
@@ -135,6 +142,8 @@ saved = load_saved_settings()
 
 with gr.Blocks(title="图片自动转提示词（多图+面部细节）") as demo:
     gr.Markdown(
+        "# 图片自动转提示词（支持多图融合）\n"
+        "✅ 已提供【面部细节模式】和【限制级选项】两个独立开关。"
         "# 图片自动转提示词（支持多图融合，默认仅面部细节）\n"
         "可上传多张人物图，系统会融合共同面部特征，减少单图误差。"
     )
@@ -155,6 +164,13 @@ with gr.Blocks(title="图片自动转提示词（多图+面部细节）") as dem
             )
             model_input = gr.Textbox(label="模型（可选，留空自动选默认）", value=saved.get("model", ""))
             detail_level_input = gr.Dropdown(choices=["low", "medium", "high"], value="high", label="细节保真等级")
+            face_only_input = gr.Checkbox(
+                label="面部细节模式（仅提取人脸）",
+                value=True,
+            )
+            restricted_input = gr.Checkbox(
+                label="限制级选项（裸露/色情/情色风险拦截）",
+                value=False,
             focus_mode_input = gr.Dropdown(
                 choices=["face", "general"],
                 value="face",
@@ -266,6 +282,8 @@ with gr.Blocks(title="图片自动转提示词") as demo:
             purpose_input,
             model_input,
             detail_level_input,
+            face_only_input,
+            restricted_input,
             focus_mode_input,
             safety_level_input,
             remember_settings_input,

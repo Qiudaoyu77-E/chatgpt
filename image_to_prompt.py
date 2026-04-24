@@ -288,12 +288,14 @@ def main() -> None:
     parser.add_argument("--purpose", default=None, help="用途")
     parser.add_argument("--detail-level", default="high", choices=["low", "medium", "high"], help="细节保真等级")
     parser.add_argument("--focus-mode", default="face", choices=["face", "general"], help="face=仅面部细节")
+    parser.add_argument("--face-only", action="store_true", help="快捷开关：等同 --focus-mode face")
     parser.add_argument(
         "--safety-level",
         default="normal",
         choices=["normal", "restricted"],
         help="normal=正常生成；restricted=检测到裸露/色情/情色风险则阻止",
     )
+    parser.add_argument("--restricted", action="store_true", help="快捷开关：等同 --safety-level restricted")
     parser.add_argument("--style", default=None, help="期望风格，如 3D / 动漫 / 写实")
     parser.add_argument("--purpose", default=None, help="用途，如 Midjourney / 海报 / 电商主图")
     parser.add_argument("--detail-level", default="high", choices=["low", "medium", "high"], help="细节保真等级")
@@ -306,6 +308,11 @@ def main() -> None:
     final_base_url = args.base_url or provider_cfg["base_url"]
     final_model = args.model or provider_cfg.get("default_model") or "gpt-4.1-mini"
 
+    effective_focus_mode = "face" if args.face_only else args.focus_mode
+    effective_safety_level = "restricted" if args.restricted else args.safety_level
+
+    result = generate_prompt_from_paths(
+        image_paths=args.images,
     result = generate_prompt_from_paths(
         image_paths=args.images,
     result = generate_prompt_from_path(
@@ -314,6 +321,10 @@ def main() -> None:
         style=args.style,
         purpose=args.purpose,
         detail_level=args.detail_level,
+        focus_mode=effective_focus_mode,
+        safety_level=effective_safety_level,
+        api_key=args.api_key,
+        base_url=final_base_url,
         focus_mode=args.focus_mode,
         safety_level=args.safety_level,
         api_key=args.api_key,
